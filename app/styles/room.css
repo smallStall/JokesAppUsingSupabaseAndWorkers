@@ -1,0 +1,13 @@
+.camera{
+  display: grid;
+  justify-items: center;
+  align-items: center; 
+}
+
+.mirror {
+  transform: scale(-8, 8);
+}
+
+.none {
+  display: none;
+}

@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "at-rule-no-unknown": null,
+    "comment-whitespace-inside": null,
+    "selector-id-pattern": null,
+    "rule-empty-line-before": null,
+    "declaration-empty-line-before": null
+  },
+  "extends": [
+    "stylelint-config-standard"
+  ]
+}

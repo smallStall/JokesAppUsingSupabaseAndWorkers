@@ -11,13 +11,11 @@ export const links: LinksFunction = () => {
 
 export const meta: MetaFunction = () => {
   return {
-    title: "集中できルーム | ログイン",
-    description:
-      "集中できRoom!はオンラインで集中できる環境を提供するサービスです。",
+    title: "集中できルーム | ユーザー登録",
   };
 };
 
-export default function Login() {
-  return <LoginForm isLogin={true}/>;
+export default function Authenticate() {
+  return <LoginForm isLogin={false}/>;
 }
 

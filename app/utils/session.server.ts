@@ -1,82 +1,51 @@
-import { createCloudflareKVSessionStorage, redirect } from "remix";
+import { createCloudflareKVSessionStorage, redirect, json } from "remix";
 import { db } from "./db.server";
-import { Session } from "@supabase/supabase-js";
-import { definitions } from "~/types/tables";
-type LoginForm = {
-  email: string;
-  password: string;
-};
-type SignUpForm = LoginForm & { username: string }
+import { signHmac } from "~/utils/crypto.server";
+import { PeerCredential } from "skyway-js"
 
-export async function login({
-  email,
-  password
-}: LoginForm) {
-  const { user, session } = await db.auth.signIn({ email, password })
-  if (!user) return null;
-  return { session }
+export type SkywaySign = {
+  credential: PeerCredential;
+  peerId: string;
+}
+
+export type IdToken = {
+  userId: string
+  accessToken: string
 }
 
 const storage =
   createCloudflareKVSessionStorage({
     cookie: {
       name: "RJ_session",
-      // normally you want this to be `secure: true`
-      // but that doesn't work on localhost for Safari
-      // https://web.dev/when-to-use-local-https/
-      secure: process.env.NODE_ENV === "production",
+      secure: ENVIRONMENT !== 'dev',//開発時はSafariでうまくいかないためfalseにする
       secrets: [SESSION_SECRET],
       sameSite: "lax",
       path: "/",
-      maxAge: 3600, //1時間
+      //expires: new Date(Date.now() + 3600_000),
+      maxAge: 604700, //1週間
       httpOnly: true,
     },
     kv: JOKES_SESSION_STORAGE,
   });
 
 
-function getUserSession(request: Request) {
+function getServerCookie(request: Request) {
   return storage.getSession(request.headers.get("Cookie"));
 }
 
-export async function getUserToken(request: Request) {
-  const session = await getUserSession(request);
-  const accessToken = await session.get("access_token");
-  if (!accessToken || typeof accessToken !== "string") return null;
-  return accessToken;
-}
-
-export async function requireUserToken(request: Request, redirectTo: string = new URL(request.url).pathname) {
-  const session = await getUserSession(request);
-  const accessToken = await session.get("access_token");
-
+export async function requireUserToken(request: Request): Promise<Response | IdToken> {
+  const session = await getServerCookie(request);
+  const accessToken = await session.get("accessToken");
   const user = await db.auth.api.getUser(accessToken);
-  if (!accessToken || !user) {
-    const searchParams = new URLSearchParams([
-      ["redirectTo", redirectTo],
-    ]);
-    throw redirect(`/login?${searchParams}`, 401);
-  }
-  return user.data?.id;
-}
 
-
-export async function getUser(request: Request) {
-  try {
-    const session = await getUserSession(request);
-    const accessToken = await session.get("access_token");
-    const { user } = await db.auth.api.getUser(accessToken);
-    if (user) {
-      return db.from<definitions["user"]>("user").
-        select("*").eq("id", user.id).maybeSingle();
-    }
-  } catch {
-    throw logout(request);
+  if (!accessToken || !user || !user.data) {
+    throw redirect("/login", 401);
   }
+  return { userId: user.data.id, accessToken: accessToken };
 }
 
 export async function logout(request: Request) {
-  const session = await getUserSession(request);
+  const session = await getServerCookie(request);
   if (!session) { return redirect("/login") }
   return redirect("/login", {
     headers: {
@@ -85,12 +54,21 @@ export async function logout(request: Request) {
   });
 }
 
-export async function createUserSession(
-  supabaseSession: Session | null,
-  redirectTo: string
-) {
-  const session = await storage.getSession("Cookie");
-  session.set("access_token", supabaseSession?.access_token)
+
+/**
+ * Create a cookie with that stores the provided `accessToken`
+ * @param accessToken The user's JWT, stored in the user's session
+ * @returns Response that sets cookie
+ */
+export async function createUserSession(accessToken: string, userId: string, redirectTo: string) {
+  // Get/create a cookie from the cookie store
+  const session = await storage.getSession();
+
+  //Set the accessToken property in the cookie
+  session.set("accessToken", accessToken);
+  session.set("userId", userId);
+
+  //Return the response that sets the cookie in the client
   return redirect(redirectTo, {
     headers: {
       "Set-Cookie": await storage.commitSession(session),
@@ -98,21 +76,70 @@ export async function createUserSession(
   });
 }
 
-export async function register({
-  email,
-  password,
-  username
-}: SignUpForm) {
-  const { user, error: signUpError } = await db.auth.signUp(
-    { email, password },
-  );
-  if (signUpError || !user) {
-    return { error: signUpError }
+/**
+ * skywayのcredentialを発行する
+ * @param {Request} request クライアントから送られるリクエスト
+ * @param {string} redirectTo 成功したときのリダイレクト先
+ * @returns {(Promise<Response | void>)} credentialがヘッダーに格納されたレスポンス
+ */
+export async function signSkyway(request: Request, redirectTo: string): Promise<Response | void> {
+  const session = await getServerCookie(request);
+  const formData = await request.formData();
+  const peerId = formData.get("peerId");
+  if (peerId === "undefined" || typeof (peerId) !== "string") {
+    return;
   }
-  const { error: userError } = await db.from("user").insert({
-    username: username, id: user.id
-  }, { returning: 'minimal' });
-  if (userError) return { error: userError };
+  if (!session.has("accessToken")) {
+    return;
+  }
+  session.set("peerId", peerId);
+  const credentialTtl = 25 * 60; //25分
+  const timestamp = Math.floor(Date.now() / 1000);
+  const credential = {
+    timestamp: timestamp,
+    ttl: credentialTtl,
+    authToken: await signHmac(`${timestamp}:${credentialTtl}:${peerId}`)
+  }
+  session.set("credential", JSON.stringify(credential));
+  return redirect(redirectTo, {
+    headers: {
+      "Set-Cookie": await storage.commitSession(session),
+    },
+  });
+}
 
-  return { user };
+
+/**
+ * skywayのサインを取得して返す
+ * @param {Request} request
+ * @param {string} redirectTo リダイレクト先
+ * @returns {Promise<SkywaySign>} Skywayのサイン
+ */
+export async function getSkywaySign(request: Request, redirectTo: string): Promise<SkywaySign | Response> {
+  const session = await getServerCookie(request);
+  const credential = session.get("credential");
+  const peerId = session.get("peerId");
+  if (typeof peerId !== "string" || typeof credential != "string") {
+    return redirect(redirectTo);
+  }
+  const sign: SkywaySign = {
+    "credential": JSON.parse(credential),
+    "peerId": peerId
+  }
+
+  return sign
+}
+
+/** Destroy the session cookie  */
+export async function clearCookie(request: Request) {
+  const session = await storage.getSession(request.headers.get("Cookie"));
+  if (session == null) {
+    return redirect("/login")
+  } else {
+    return json("/", {
+      headers: {
+        "Set-Cookie": await storage.destroySession(session),
+      },
+    });
+  }
 }

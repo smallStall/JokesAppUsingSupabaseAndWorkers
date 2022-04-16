@@ -207,12 +207,109 @@ export interface paths {
       };
     };
   };
+  "/peer": {
+    get: {
+      parameters: {
+        query: {
+          id?: parameters["rowFilter.peer.id"];
+          user_id?: parameters["rowFilter.peer.user_id"];
+          created_at?: parameters["rowFilter.peer.created_at"];
+          end_time?: parameters["rowFilter.peer.end_time"];
+          /** Filtering Columns */
+          select?: parameters["select"];
+          /** Ordering */
+          order?: parameters["order"];
+          /** Limiting and Pagination */
+          offset?: parameters["offset"];
+          /** Limiting and Pagination */
+          limit?: parameters["limit"];
+        };
+        header: {
+          /** Limiting and Pagination */
+          Range?: parameters["range"];
+          /** Limiting and Pagination */
+          "Range-Unit"?: parameters["rangeUnit"];
+          /** Preference */
+          Prefer?: parameters["preferCount"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["peer"][];
+        };
+        /** Partial Content */
+        206: unknown;
+      };
+    };
+    post: {
+      parameters: {
+        body: {
+          /** peer */
+          peer?: definitions["peer"];
+        };
+        query: {
+          /** Filtering Columns */
+          select?: parameters["select"];
+        };
+        header: {
+          /** Preference */
+          Prefer?: parameters["preferReturn"];
+        };
+      };
+      responses: {
+        /** Created */
+        201: unknown;
+      };
+    };
+    delete: {
+      parameters: {
+        query: {
+          id?: parameters["rowFilter.peer.id"];
+          user_id?: parameters["rowFilter.peer.user_id"];
+          created_at?: parameters["rowFilter.peer.created_at"];
+          end_time?: parameters["rowFilter.peer.end_time"];
+        };
+        header: {
+          /** Preference */
+          Prefer?: parameters["preferReturn"];
+        };
+      };
+      responses: {
+        /** No Content */
+        204: never;
+      };
+    };
+    patch: {
+      parameters: {
+        query: {
+          id?: parameters["rowFilter.peer.id"];
+          user_id?: parameters["rowFilter.peer.user_id"];
+          created_at?: parameters["rowFilter.peer.created_at"];
+          end_time?: parameters["rowFilter.peer.end_time"];
+        };
+        body: {
+          /** peer */
+          peer?: definitions["peer"];
+        };
+        header: {
+          /** Preference */
+          Prefer?: parameters["preferReturn"];
+        };
+      };
+      responses: {
+        /** No Content */
+        204: never;
+      };
+    };
+  };
   "/profiles": {
     get: {
       parameters: {
         query: {
           id?: parameters["rowFilter.profiles.id"];
-          user_name?: parameters["rowFilter.profiles.user_name"];
+          created_at?: parameters["rowFilter.profiles.created_at"];
+          updated_at?: parameters["rowFilter.profiles.updated_at"];
           /** Filtering Columns */
           select?: parameters["select"];
           /** Ordering */
@@ -264,7 +361,8 @@ export interface paths {
       parameters: {
         query: {
           id?: parameters["rowFilter.profiles.id"];
-          user_name?: parameters["rowFilter.profiles.user_name"];
+          created_at?: parameters["rowFilter.profiles.created_at"];
+          updated_at?: parameters["rowFilter.profiles.updated_at"];
         };
         header: {
           /** Preference */
@@ -280,7 +378,8 @@ export interface paths {
       parameters: {
         query: {
           id?: parameters["rowFilter.profiles.id"];
-          user_name?: parameters["rowFilter.profiles.user_name"];
+          created_at?: parameters["rowFilter.profiles.created_at"];
+          updated_at?: parameters["rowFilter.profiles.updated_at"];
         };
         body: {
           /** profiles */
@@ -462,6 +561,24 @@ export interface definitions {
     /** Format: text */
     title?: string;
   };
+  peer: {
+    /**
+     * Format: uuid
+     * @description Note:
+     * This is a Primary Key.<pk/>
+     * @default extensions.uuid_generate_v4()
+     */
+    id: string;
+    /** Format: uuid */
+    user_id: string;
+    /**
+     * Format: timestamp without time zone
+     * @default now()
+     */
+    created_at: string;
+    /** Format: bigint */
+    end_time: number;
+  };
   profiles: {
     /**
      * Format: uuid
@@ -469,8 +586,16 @@ export interface definitions {
      * This is a Primary Key.<pk/>
      */
     id: string;
-    /** Format: text */
-    user_name: string;
+    /**
+     * Format: timestamp without time zone
+     * @default now()
+     */
+    created_at: string;
+    /**
+     * Format: timestamp without time zone
+     * @default now()
+     */
+    updated_at: string;
   };
   user: {
     /**
@@ -549,12 +674,24 @@ export interface parameters {
   "rowFilter.message.created_at": string;
   /** Format: text */
   "rowFilter.message.title": string;
+  /** @description peer */
+  "body.peer": definitions["peer"];
+  /** Format: uuid */
+  "rowFilter.peer.id": string;
+  /** Format: uuid */
+  "rowFilter.peer.user_id": string;
+  /** Format: timestamp without time zone */
+  "rowFilter.peer.created_at": string;
+  /** Format: bigint */
+  "rowFilter.peer.end_time": string;
   /** @description profiles */
   "body.profiles": definitions["profiles"];
   /** Format: uuid */
   "rowFilter.profiles.id": string;
-  /** Format: text */
-  "rowFilter.profiles.user_name": string;
+  /** Format: timestamp without time zone */
+  "rowFilter.profiles.created_at": string;
+  /** Format: timestamp without time zone */
+  "rowFilter.profiles.updated_at": string;
   /** @description user */
   "body.user": definitions["user"];
   /** Format: uuid */

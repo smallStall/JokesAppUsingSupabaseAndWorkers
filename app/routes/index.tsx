@@ -1,16 +1,4 @@
-import type { LinksFunction, MetaFunction } from "remix";
-import { Link } from "remix";
-
-import stylesUrl from "~/styles/index.css";
-
-export const links: LinksFunction = () => {
-  return [
-    {
-      rel: "stylesheet",
-      href: stylesUrl
-    }
-  ];
-};
+import type { MetaFunction } from "remix";
 
 export const meta: MetaFunction = () => ({
   title: "Remix: So great, it's funny!",
@@ -21,17 +9,11 @@ export const meta: MetaFunction = () => ({
 export default function Index() {
   return (
     <div className="container">
+      <a className="button" href="/login">ログインはこちら</a>
       <div className="content">
         <h1>
-          Remix <span>Jokes!</span>
+          できROOM!
         </h1>
-        <nav>
-          <ul>
-            <li>
-              <Link to="jokes">Read Jokes</Link>
-            </li>
-          </ul>
-        </nav>
       </div>
     </div>
   );

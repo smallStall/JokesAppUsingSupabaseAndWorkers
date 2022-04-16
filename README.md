@@ -1,2 +1,2 @@
 # Summary
-This is a Starter with Supabase, Remix, and Cloudflare Workers.
+Jokes App Remix tutorial using Supabase and Cloudflare Workers
